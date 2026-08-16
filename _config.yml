@@ -73,6 +73,10 @@ netease_comment: false
 # ga_track_id: "UA-49627206-1" # Format: UA-xxxxxx-xx
 # ga_domain: huangxuan.me
 
+# Google AdSense (opt-in; set both to enable ads, leave empty to disable)
+google_adsense_client:
+google_adsense_slot:
+
 # Sidebar settings
 sidebar: true # whether or not using Sidebar.
 sidebar-about-description: "for循环等不到return <br> while循环没有尽头 <br> 所以break打破循环 <br> 不要执着于continue"

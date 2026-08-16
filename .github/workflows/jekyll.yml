@@ -47,6 +47,12 @@ jobs:
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
+      - name: Optimize images
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pngquant jpegoptim
+          find img -type f -name '*.png' -exec pngquant --skip-if-larger --force --quality=65-85 --ext .png {} \;
+          find img -type f \( -name '*.jpg' -o -name '*.jpeg' \) -exec jpegoptim --strip-all -m82 {} \;
       - name: Build with Jekyll
         # Outputs to the './_site' directory by default
         run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"

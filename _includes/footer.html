@@ -9,11 +9,7 @@
                 <p class="copyright text-muted">
                     Copyright &copy; {{ site.title }} {{ site.time | date: '%Y' }}
                     <br>
-                    Powered by <a href="http://huangxuan.me">Hux Blog</a> |
-                    <iframe style="margin-left: 2px; margin-bottom:-5px;" frameborder="0" scrolling="0" width="100px"
-                        height="20px"
-                        src="https://ghbtns.com/github-btn.html?user=huxpro&repo=huxpro.github.io&type=star&count=true">
-                    </iframe>
+                    Powered by <a href="http://huangxuan.me">Hux Blog</a>
                 </p>
             </div>
         </div>
@@ -21,22 +17,22 @@
 </footer>
 
 <!-- jQuery -->
-<script src="{{ "/js/jquery.min.js " | prepend: site.baseurl }}"></script>
+<script src="{{ "/js/jquery.min.js " | prepend: site.baseurl }}" defer></script>
 
 <!-- Bootstrap Core JavaScript -->
 <!-- Currently, only navbar scroll-down effect at desktop still depends on this -->
-<script src="{{ "/js/bootstrap.min.js " | prepend: site.baseurl }}"></script>
+<script src="{{ "/js/bootstrap.min.js " | prepend: site.baseurl }}" defer></script>
 
 <!-- Custom Theme JavaScript -->
-<script src="{{ "/js/hux-blog.min.js " | prepend: site.baseurl }}"></script>
+<script src="{{ "/js/hux-blog.min.js " | prepend: site.baseurl }}" defer></script>
 
 <!-- Simple Jekyll Search -->
-<script src="{{ "/js/simple-jekyll-search.min.js" | prepend: site.baseurl }}"></script>
+<script src="{{ "/js/simple-jekyll-search.min.js" | prepend: site.baseurl }}" defer></script>
 
 <!-- Service Worker -->
 {% if site.service-worker %}
-<script src="{{ "/js/snackbar.js " | prepend: site.baseurl }}"></script>
-<script src="{{ "/js/sw-registration.js " | prepend: site.baseurl }}"></script>
+<script src="{{ "/js/snackbar.js " | prepend: site.baseurl }}" defer></script>
+<script src="{{ "/js/sw-registration.js " | prepend: site.baseurl }}" defer></script>
 {% endif %}
 
 <!-- async load function -->
@@ -79,7 +75,7 @@
         obj.style.height = obj.contentWindow.document.body.scrollHeight + 'px';
     }
 
-    $(document).ready(function () {
+    document.addEventListener('DOMContentLoaded', function () {
         var $chart = document.querySelector("#chart");
         $chart.onload = function () {
             resizeIframe($chart)
@@ -87,7 +83,7 @@
         window.addEventListener("resize", () => {
             resizeIframe($chart)
         });
-    })
+    });
 </script>
 {% endif %}
 
@@ -95,23 +91,73 @@
 {% if page.title == 'Archive' %}
 <!-- jquery.tagcloud.js -->
 <script>
-    async('{{ "/js/jquery.tagcloud.js" | prepend: site.baseurl }}', function () {
-        $.fn.tagcloud.defaults = {
-            //size: {start: 1, end: 1, unit: 'em'},
-            color: { start: '#bbbbee', end: '#2f93b4' },
-        };
-        $('#tag_cloud a').tagcloud();
-    })
+    document.addEventListener('DOMContentLoaded', function () {
+        async('{{ "/js/jquery.tagcloud.js" | prepend: site.baseurl }}', function () {
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: { start: '#bbbbee', end: '#2f93b4' },
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    });
 </script>
-<script src='{{ "/js/archive.js " | prepend: site.baseurl }}'></script>
+<script src='{{ "/js/archive.js " | prepend: site.baseurl }}' defer></script>
 {% endif %}
 
-<!--fastClick.js -->
+<!--fastClick.js (self-hosted) -->
 <script>
-    async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function () {
+    async("{{ '/js/fastclick.min.js' | prepend: site.baseurl }}", function () {
         var $nav = document.querySelector("nav");
         if ($nav) FastClick.attach($nav);
     })
+</script>
+
+<!-- Native lazy loading + async decoding for content images -->
+<script>
+    (function () {
+        var imgs = document.querySelectorAll('.post-container img, article img');
+        for (var i = 0; i < imgs.length; i++) {
+            var img = imgs[i];
+            img.setAttribute('loading', 'lazy');
+            img.setAttribute('decoding', 'async');
+            if (img.getAttribute('src') && img.getAttribute('src').indexOf('zhimg.com') > -1) {
+                img.setAttribute('referrerpolicy', 'no-referrer');
+            }
+        }
+    })();
+</script>
+
+<!-- Theme toggle (dark / light, follows system by default) -->
+<script>
+    (function () {
+        var btn = document.getElementById('theme-toggle');
+        if (!btn) return;
+        var icon = btn.querySelector('i');
+
+        function storedTheme() {
+            try { return localStorage.getItem('theme'); } catch (e) { return null; }
+        }
+        function systemDark() {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        }
+        function isDark() {
+            var t = storedTheme();
+            if (t === 'dark') return true;
+            if (t === 'light') return false;
+            return systemDark();
+        }
+        function render() {
+            var dark = isDark();
+            icon.className = 'fa ' + (dark ? 'fa-sun-o' : 'fa-moon-o');
+        }
+        btn.addEventListener('click', function () {
+            var dark = !isDark();
+            try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) { }
+            document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+            render();
+        });
+        render();
+    })();
 </script>
 
 
@@ -187,31 +233,33 @@
         return true;
     }
 
-    generateCatalog(".catalog-body");
+    document.addEventListener('DOMContentLoaded', function () {
+        generateCatalog(".catalog-body");
 
-    // toggle side catalog
-    $(".catalog-toggle").click((function (e) {
-        e.preventDefault();
-        $('.side-catalog').toggleClass("fold")
-    }))
+        // toggle side catalog
+        $(".catalog-toggle").click((function (e) {
+            e.preventDefault();
+            $('.side-catalog').toggleClass("fold")
+        }))
 
-    /*
-     * Doc: https://github.com/davist11/jQuery-One-Page-Nav
-     * Fork by Hux to support padding
-     */
-    async("{{ '/js/jquery.nav.js' | prepend: site.baseurl }}", function () {
-        $('.catalog-body').onePageNav({
-            currentClass: "active",
-            changeHash: !1,
-            easing: "swing",
-            filter: "",
-            scrollSpeed: 700,
-            scrollOffset: 0,
-            scrollThreshold: .2,
-            begin: null,
-            end: null,
-            scrollChange: null,
-            padding: 80
+        /*
+         * Doc: https://github.com/davist11/jQuery-One-Page-Nav
+         * Fork by Hux to support padding
+         */
+        async("{{ '/js/jquery.nav.js' | prepend: site.baseurl }}", function () {
+            $('.catalog-body').onePageNav({
+                currentClass: "active",
+                changeHash: !1,
+                easing: "swing",
+                filter: "",
+                scrollSpeed: 700,
+                scrollOffset: 0,
+                scrollThreshold: .2,
+                begin: null,
+                end: null,
+                scrollChange: null,
+                padding: 80
+            });
         });
     });
 </script>
@@ -269,7 +317,9 @@
     }
 
     // init
-    _render();
+    document.addEventListener('DOMContentLoaded', function () {
+        _render();
+    });
 </script>
 {% endif %}
 
@@ -283,7 +333,8 @@
         return e.childNodes.length === 0 ? "" : e.childNodes[0].nodeValue;
     }
 
-    SimpleJekyllSearch({
+    document.addEventListener('DOMContentLoaded', function () {
+        SimpleJekyllSearch({
         searchInput: document.getElementById('search-input'),
         resultsContainer: document.getElementById('search-results'),
         json: '/search.json',
@@ -304,7 +355,6 @@
         }
     });
 
-    $(document).ready(function () {
         var $searchPage = $('.search-page');
         var $searchOpen = $('.search-icon');
         var $searchClose = $('.search-icon-close');

@@ -1,0 +1,185 @@
+/* ==========================================================================
+   Custom typography & dark theme (appended, does not touch less/ build chain)
+   ========================================================================== */
+
+/* ---- Theme color variables ---- */
+:root {
+  --bg: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-soft: #f3f5f5;
+  --fg: #404040;
+  --fg-secondary: #a3a3a3;
+  --fg-muted: #808080;
+  --brand: #0085a1;
+  --border: #e4e4e4;
+  --code-bg: #f4f4f4;
+  --sns-circle: #404040;
+}
+
+html[data-theme="dark"] {
+  --bg: #16181b;
+  --bg-elevated: #1f2226;
+  --bg-soft: #272b30;
+  --fg: #d7d9dc;
+  --fg-secondary: #9aa0a6;
+  --fg-muted: #8a9198;
+  --brand: #35bcd0;
+  --border: #2e3238;
+  --code-bg: #23262b;
+  --sns-circle: #35bcd0;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --bg: #16181b;
+    --bg-elevated: #1f2226;
+    --bg-soft: #272b30;
+    --fg: #d7d9dc;
+    --fg-secondary: #9aa0a6;
+    --fg-muted: #8a9198;
+    --brand: #35bcd0;
+    --border: #2e3238;
+    --code-bg: #23262b;
+    --sns-circle: #35bcd0;
+  }
+}
+
+/* ---- Typography ---- */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial,
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans SC",
+    "Noto Sans CJK SC", "WenQuanYi Micro Hei", sans-serif;
+  line-height: 1.75;
+}
+
+/* Distinct, literary heading face (Kai / serif) vs. sans body */
+h1, h2, h3, h4, h5, h6,
+.site-heading h1, .page-heading h1, .post-heading h1,
+.post-title, .section-heading, .listing-seperator {
+  font-family: "LXGW WenKai", "霞鹜文楷", "Kaiti SC", "STKaiti", "KaiTi", "楷体",
+    "Lora", "Georgia", "Times New Roman", serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.post-container {
+  letter-spacing: 0.015em;
+}
+
+/* ---- Base colors ---- */
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+a { color: var(--fg); }
+a:hover, a:focus { color: var(--brand); }
+
+hr { border-top: 1px solid var(--border); }
+
+blockquote {
+  color: var(--fg-muted);
+  border-left: 5px solid var(--border);
+}
+
+/* Inline code only; fenced code blocks keep their own highlight background */
+:not(pre) > code {
+  background-color: var(--code-bg);
+  color: var(--brand);
+}
+
+.post-container table { border-color: var(--border); }
+.post-container th, .post-container td { border: 1px solid var(--border); }
+
+/* ---- Home / post list ---- */
+.post-preview > a { color: var(--fg); }
+.post-preview > a:hover, .post-preview > a:focus { color: var(--brand); }
+.post-meta { color: var(--fg-secondary); }
+.post-meta > a { color: var(--fg); }
+.post-content-preview { color: var(--fg-secondary); }
+
+/* ---- Navbar ---- */
+.navbar-custom.is-fixed {
+  background-color: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+.navbar-custom.is-fixed .navbar-brand,
+.navbar-custom.is-fixed .nav li a { color: var(--fg); }
+.navbar-custom.is-fixed .navbar-brand:hover,
+.navbar-custom.is-fixed .nav li a:hover { color: var(--brand); }
+
+.navbar-custom.invert .navbar-brand,
+.navbar-custom.invert .nav li a { color: var(--fg); }
+.navbar-custom.invert .navbar-toggle .icon-bar { background-color: var(--fg); }
+
+/* Mobile collapsed menu */
+.navbar-custom .navbar-collapse.in,
+.navbar-custom #huxblog_navbar.in {
+  background: var(--bg-elevated);
+}
+
+/* ---- Text-style header (pages without a cover image) ---- */
+.intro-header.style-text .site-heading,
+.intro-header.style-text .page-heading,
+.intro-header.style-text .post-heading { color: var(--fg); }
+.intro-header.style-text .tags a,
+.intro-header.style-text .tags .tag { border-color: var(--fg); color: var(--fg); }
+
+/* ---- Footer ---- */
+footer .copyright { color: var(--fg-secondary); }
+footer .copyright a { color: var(--brand); }
+
+/* ---- Pager ---- */
+.pager li > a, .pager li > span {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--fg);
+}
+.pager li > a:hover, .pager li > a:focus {
+  background-color: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+/* ---- Search overlay ---- */
+.search-page { background: var(--bg-elevated); }
+#search-input { color: var(--fg); }
+.search-icon a, .search-icon-close { color: var(--fg); }
+.search-page .mini-post-list .post-preview > a { color: var(--fg); }
+
+/* ---- Side catalog ---- */
+.side-catalog .catalog-body li a { color: var(--fg); }
+.side-catalog .catalog-body .active { background-color: var(--bg-soft); }
+.side-catalog .catalog-body .active a { color: var(--brand) !important; }
+
+/* ---- Tag cloud (archive page) ---- */
+#tag_cloud a, #tag_cloud .tag { background: var(--bg-soft); color: var(--fg-secondary); }
+#tag_cloud .tag-button--all { color: var(--brand) !important; }
+
+/* ---- Giscus comments container ---- */
+#giscus-thread .giscus { border-color: var(--border); background: var(--bg-elevated); }
+
+/* ---- Social link buttons (footer & sidebar) ---- */
+.fa-stack .fa-circle {
+  color: var(--sns-circle);
+}
+a:hover .fa-stack .fa-circle,
+a:focus .fa-stack .fa-circle {
+  color: var(--brand);
+}
+.fa-stack .fa-inverse {
+  color: #fff;
+}
+.fa-stack {
+  transition: opacity 0.2s ease;
+}
+a:hover .fa-stack {
+  opacity: 0.85;
+}
+
+/* ---- Theme toggle button ---- */
+.theme-toggle a {
+  cursor: pointer;
+  font-size: 16px;
+}
