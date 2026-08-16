@@ -23,21 +23,21 @@ const POSTS_DIR = path.join(ROOT, '_posts');
 const CACHE_DIR = path.join(ROOT, '.llm-cache');
 const CACHE_FILE = path.join(CACHE_DIR, 'cache.json');
 
-const IMAGE_POOL = [
-  'img/home-bg.jpg',
-  'img/bg-walle.jpg',
-  'img/bg-little-universe.jpg',
-  'img/bg-material.jpg',
-  'img/chips.jpg',
-  'img/back.jpg',
-  'img/posts-img/country.jpg',
-  'img/posts-img/wallhaven-1.jpg',
-  'img/posts-img/wallhaven-1j8g99.jpg',
-  'img/posts-img/25-report.jpg',
-];
+// Image files under img/ that should NOT be used as auto cover images
+// (site chrome / avatars). Sub-directories like in-posts/ and posts-img/ are
+// also excluded because those images belong to specific posts.
+const EXCLUDE_COVERS = new Set([
+  'favicon.ico',
+  'avatar.jpg',
+  'avatar-about.jpg',
+  '404-bg.jpg',
+  'img-archive.jpg',
+]);
+
+const COVER_EXT = ['.jpg', '.jpeg', '.png', '.webp'];
 
 const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
-const MODEL = 'deepseek-chat';
+const MODEL = 'deepseek-v4-flash';
 const MAX_INPUT_CHARS = 6000;
 const GENERATED_MARKER = '# @generated';
 
@@ -93,10 +93,23 @@ function extractFirstImage(content) {
   return url;
 }
 
+function listCoverImages() {
+  let pool = [];
+  try {
+    pool = fs
+      .readdirSync(path.join(ROOT, 'img'))
+      .filter((f) => COVER_EXT.includes(path.extname(f).toLowerCase()) && !EXCLUDE_COVERS.has(f))
+      .sort();
+  } catch {}
+  return pool;
+}
+
 function pickImage(filename) {
+  const pool = listCoverImages();
+  if (pool.length === 0) return 'img/home-bg.jpg';
   const h = crypto.createHash('sha256').update(filename).digest();
-  const idx = h.readUInt32BE(0) % IMAGE_POOL.length;
-  return IMAGE_POOL[idx];
+  const idx = h.readUInt32BE(0) % pool.length;
+  return `img/${pool[idx]}`;
 }
 
 function readCache() {
@@ -128,14 +141,14 @@ async function callDeepSeek(content, apiKey) {
             '你是一名中文技术博客的编辑助手。请阅读用户提供的文章正文,输出一个 JSON 对象,包含以下字段:\n' +
             '- tags: 3~5 个技术主题标签(字符串数组)\n' +
             '- subtitle: 一句话副标题,概括文章核心内容\n' +
-            '- tldr: 一段中文总结(4~6 句),概括文章的背景、方法、要点和结论,便于读者快速了解全文\n' +
+            '- tldr: 一段中文总结(不超过 300 字),概括文章的背景、方法、要点和结论,可以写得详细一些,不必局限于几句话\n' +
             '只输出 JSON,不要输出任何其他内容。',
         },
         { role: 'user', content: content.slice(0, MAX_INPUT_CHARS) },
       ],
       response_format: { type: 'json_object' },
       temperature: 0.3,
-      max_tokens: 1000,
+      max_tokens: 1200,
     }),
   });
   if (!res.ok) {
