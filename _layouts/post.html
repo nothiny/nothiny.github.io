@@ -23,6 +23,13 @@ layout: default
                     {% include multilingual-sel.html %}
                 {% endif %}
 
+                {% if page.tldr %}
+                <div class="post-tldr">
+                    <span class="post-tldr-label">🤖 TL;DR · DeepSeek 生成</span>
+                    <div class="post-tldr-content">{{ page.tldr | markdownify }}</div>
+                </div>
+                {% endif %}
+
 				{{ content }}
 
                 <hr style="visibility: hidden;">

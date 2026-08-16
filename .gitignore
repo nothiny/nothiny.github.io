@@ -1,6 +1,8 @@
 _site
 .toolchain
 vendor
+.env
+.llm-cache
 _posts/_draft
 _posts/_archive
 _archive

@@ -33,6 +33,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Cache LLM results
+        uses: actions/cache@v4
+        with:
+          path: .llm-cache
+          key: llm-cache-${{ hashFiles('_posts/*.md') }}
+          restore-keys: |
+            llm-cache-
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -53,6 +60,10 @@ jobs:
           sudo apt-get install -y pngquant jpegoptim
           find img -type f -name '*.png' -exec pngquant --skip-if-larger --force --quality=65-85 --ext .png {} \;
           find img -type f \( -name '*.jpg' -o -name '*.jpeg' \) -exec jpegoptim --strip-all -m82 {} \;
+      - name: Generate front matter
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: node .github/scripts/generate-frontmatter.mjs
       - name: Build with Jekyll
         # Outputs to the './_site' directory by default
         run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
