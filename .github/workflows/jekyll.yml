@@ -64,6 +64,8 @@ jobs:
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: node .github/scripts/generate-frontmatter.mjs
+      - name: Rewrite local image URLs
+        run: node .github/scripts/rewrite-image-urls.mjs
       - name: Build with Jekyll
         # Outputs to the './_site' directory by default
         run: bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
