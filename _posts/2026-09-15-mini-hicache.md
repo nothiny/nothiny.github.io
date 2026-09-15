@@ -2,6 +2,7 @@
 title:      "给 Mini-SGLang 做分层 KV Cache：从 L1 显存到 L3 本地文件"
 date:       2026-09-15 12:00:00
 header-img: img/wallhaven-lm6jm2.jpg
+mermaid:    true
 tags:
     - llm 推理
     - kv cache
@@ -32,20 +33,20 @@ LLM 推理里的 prefix cache（radix cache）是个性价比极高的优化：�
 
 一次请求进来之后，匹配、决策、恢复大概是这样：
 
-```
-request
-  │
-  ▼
-match shared HiRadixTree  ──► (l1_len, l2_len, l3_len)
-  │
-  ▼
-online cost model  ──►  restore / recompute 决策
-  │
-  ├─ L2 hit ─► H2D DMA ─────────────┐
-  ├─ L3 hit ─► preadv ─► H2D DMA ───┤
-  └─ recompute ─► GPU prefill ──────┤
-                                     ▼
-                              publish L1 → decode
+```mermaid
+flowchart TD
+    R[request] --> M[match shared HiRadixTree]
+    M --> LEN["(l1_len, l2_len, l3_len)"]
+    M --> C[online cost model]
+    C --> D{"restore / recompute 决策"}
+    D -->|L2 hit| H2D[H2D DMA]
+    D -->|L3 hit| PRE[preadv]
+    PRE --> H2D3[H2D DMA]
+    D -->|recompute| PF[GPU prefill]
+    H2D --> P[publish L1]
+    H2D3 --> P
+    PF --> P
+    P --> DEC[decode]
 ```
 
 关键点是这棵 radix 树只有一棵，三层共享同一套 token 拓扑。这个决定后面会展开。
@@ -257,15 +258,17 @@ def _coalesce_mappings(source_pages, destination_pages):
 
 新前缀落盘走的是写穿，路径是：
 
-```
-L1_PRIVATE -> D2H_PENDING -> L1_L2 -> H2S_PENDING -> L1_L2_L3
+```mermaid
+flowchart LR
+    L1_PRIVATE --> D2H_PENDING --> L1_L2 --> H2S_PENDING --> L1_L2_L3
 ```
 
 恢复反向：
 
-```
-L2 -> H2D_PENDING -> L1_L2
-L3 -> S2H_PENDING -> L2_L3 -> H2D_PENDING -> L1_L2_L3
+```mermaid
+flowchart LR
+    L2 --> H2D_PENDING --> L1_L2
+    L3 --> S2H_PENDING --> L2_L3 --> H2D_PENDING --> L1_L2_L3
 ```
 
 每个 pending 操作会锁住源 handle，并且预留私有的目标页。只有在 CUDA event 或者 I/O future 成功之后，才提交元数据、把页的所有权交给树。失败时只回收还是私有的页，然后回退去重算。
