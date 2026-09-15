@@ -144,7 +144,7 @@ if self._are_consecutive(host_pages):
     host_destination = host_pool.page_buffer[host_pages[0]:host_pages[0] + len(host_pages)]
     host_destination.copy_(packed_device, non_blocking=True)
 else:
-    packed_host.copy_(packed_device, non_blocking=True)
+    workspace.host[:transfer_pages].copy_(packed_device, non_blocking=True)
 ```
 
 H2D 是对称的：host 侧先 gather（连续则省），一次 DMA 上 GPU，再一个 Triton kernel scatter 到任意物理页。
@@ -158,10 +158,27 @@ def _release_workspace(self, workspace):
     workspace.busy = False
     idle = [item for item in self._workspaces if not item.busy]
     if len(idle) > 1:
-        keep = max(idle, key=lambda item: item.pages)
+        keep = max(idle, key=lambda item: (item.pages, item.host is not None))
         self._workspaces = [item for item in self._workspaces
                             if item.busy or item is keep]
 ```
+
+后来这里又改了一版。真正贵的是 pinned 分配那一下：`cudaHostAlloc` 一个几十 MiB 的 buffer 要几十毫秒，而 GPU 侧 buffer 不到 1 ms。更没必要的是，pinned 的 page-major packing buffer 只在 host 侧物理碎片化时才用得到——连续页的时候 DMA 直接落到 pinned L2 池上，这个 buffer 根本没被碰过。所以现在把它改成懒分配：连续路径完全不分配，碎片化路径才分配，分配过一次就留着复用。`_release_workspace` 也相应地在页数相同时优先留下已经带 pinned buffer 的那个。
+
+```python
+host_is_consecutive = self._are_consecutive(host_pages)
+workspace, created = self._acquire_workspace(
+    transfer_pages, needs_host=not host_is_consecutive
+)
+...
+if host_is_consecutive:
+    host_destination = host_pool.page_buffer[host_pages[0]:host_pages[0] + len(host_pages)]
+    host_destination.copy_(packed_device, non_blocking=True)
+else:
+    workspace.host[:transfer_pages].copy_(packed_device, non_blocking=True)
+```
+
+在 350 页、host 连续、pinned 分配器还没热起来的进程里，第一次 D2H 的 setup 能到几十毫秒量级；改成懒分配后这条路径不再碰 pinned，只剩下不到 1 ms 的 GPU buffer 开销。模型加载顺带把分配器预热了的进程里差别不大，但至少少占一份最多 L1 容量的 pinned 内存。
 
 ### Triton kernel
 
@@ -418,6 +435,33 @@ L2 不碰文件，只有 H2D，每 token 约 4.6 us，所以能拉开到 4 倍�
 
 看了下 `free`：可用内存只剩 25G，swap 已经用了 4G。这台机器上还跑着别的训练任务，写 tmpfs 会触发内存回收和换页。所以这个对照不成立，我没拿它当结论。它只说明共享机器上做存储基准要小心。
 
+### 另一组机器：RTX 5070 + Qwen3-4B
+
+上面那组是 Blackwell + Qwen3-8B。同一份代码我后来又在一张 RTX 5070（12 GB）上跑了一遍，模型换成 Qwen3-4B。KV 几何正好和 8B 一样：36 层、8 个 KV heads、head_dim 128，每 token 147456 字节。page size 1，FlashInfer，L3 还是根文件系统上的文件（这块机器上是 ext4 虚拟盘，同样没有 NVMe）。
+
+把两组数据画在一起：上面一排是延迟（左边 8B 按 prefix 长度，右边 4B 固定 350 token），下面是吞吐：
+
+![两组数据的对比：上半是延迟，下半是吞吐；8B + Blackwell 和 4B + RTX 5070 都画在一起](/img/in-posts/mini-hicache-benchmark.png)
+
+延迟用 `bench_hicache.py`，`--num-pages 512 --prefix-tokens 350 --policy always`，10 次迭代取中位数、前置 2 轮 warmup，下面是 3 次重复的中位数：
+
+| tier | 延迟 | 相对重算 |
+|------|-----:|--------:|
+| 重算 | 70.58 ms | 1.00x |
+| L2 restore | 21.29 ms | 3.31x |
+| L3 restore | 26.39 ms | 2.67x |
+
+吞吐用 `bench_hicache_stress.py`，8 个 350 token 前缀轮转，80 个请求，batch size 1，默认 `cost` 策略：
+
+| 配置 | 吞吐 | 有效延迟 | P50 | P99 |
+|------|-----:|--------:|----:|----:|
+| 重算 | 15.44 req/s | 64.76 ms | 63.81 | 69.53 |
+| L2（4096 host pages） | 45.41 req/s | 22.02 ms | 21.18 | 29.99 |
+| L3 cost（512 host + 4096 storage） | 36.20 req/s | 27.62 ms | 26.96 | 36.59 |
+| L3 always | 35.59 req/s | 28.10 ms | 27.36 | 33.80 |
+
+结论和 Blackwell 那组是反的。在 4B + 5070 上 L3 收益很清楚，延迟 2.67x、吞吐 2.34x，而且 `cost` 和 `always` 几乎没差别（36.20 vs 35.59），说明代价模型也觉得 L3 划算。原因就是上一节那个比值：5070 的算力相对更弱，重算更贵，而存储和 PCIe 带宽并没有等比例变慢，「存储带宽 ÷ 重算速度」被拉大了。同一个公式，换一组硬件，结论就反过来。
+
 ## 和 SGLang HiCache 的关系
 
 Mini-SGLang 本来就是 SGLang 的精简版，HiCache 这个想法也是从 SGLang 借的，设计文档里把 SGLang HiCache 列在 prior art。但两边在取舍上差别不小，这一节把差异摊开讲。
@@ -454,7 +498,7 @@ Mini-SGLang 这边 L3 就是一个进程级的本地文件，没有 RDMA、没�
 
 L2 是稳赚的。长前缀下 4 倍以上，短前缀也有 1.6 倍，不需要调参，默认就开。
 
-L3 完全看硬件。没有 NVMe 就不要指望它，`cost` 策略会帮你避开，但你还是要为写穿付出成本。要么插块盘，要么把 L3 关掉。
+L3 完全看硬件，也看模型大小。8B + Blackwell 上它基本白给，同一份代码换到 4B + RTX 5070 上却能拿到延迟 2.67x、吞吐 2.34x，`cost` 策略两次都选得没错。原因就是前面那个比值：重算越贵、盘相对越快，L3 越值。算力强、盘慢的时候，`cost` 策略会帮你避开，但你还是要为写穿付出带宽和 CPU。
 
 实现上我认为比较值钱的是两件事：
 
