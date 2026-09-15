@@ -1,0 +1,82 @@
+<!-- Mermaid diagram support (opt out with `mermaid: false` in a post's front matter).
+     The mermaid library is only fetched when the page actually contains a ```mermaid
+     block, and diagrams are re-rendered when the light/dark theme is toggled. -->
+<script>
+    (function () {
+        var MERMAID_SRC = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js";
+
+        function isDark() {
+            var attr = document.documentElement.getAttribute("data-theme");
+            if (attr === "dark") return true;
+            if (attr === "light") return false;
+            return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        }
+
+        // kramdown + rouge render ```mermaid as <pre><code class="language-mermaid">.
+        // Swap each into a .mermaid div and remember the source for re-rendering.
+        function collect() {
+            var blocks = document.querySelectorAll("pre > code.language-mermaid, pre > code.lang-mermaid");
+            for (var i = 0; i < blocks.length; i++) {
+                var code = blocks[i];
+                var pre = code.parentNode;
+                var div = document.createElement("div");
+                div.className = "mermaid";
+                div.setAttribute("data-src", code.textContent);
+                div.textContent = code.textContent;
+                pre.parentNode.replaceChild(div, pre);
+            }
+        }
+
+        function load(callback) {
+            if (window.mermaid) { callback(); return; }
+            var script = document.createElement("script");
+            script.src = MERMAID_SRC;
+            script.onload = callback;
+            script.onerror = function () { console.error("mermaid: failed to load " + MERMAID_SRC); };
+            document.head.appendChild(script);
+        }
+
+        function render() {
+            var nodes = document.querySelectorAll(".mermaid");
+            if (!nodes.length) return;
+            load(function () {
+                var pending = [];
+                for (var i = 0; i < nodes.length; i++) {
+                    var node = nodes[i];
+                    var src = node.getAttribute("data-src");
+                    if (src) {
+                        node.removeAttribute("data-processed");
+                        node.textContent = src;
+                    }
+                    pending.push(node);
+                }
+                window.mermaid.initialize({
+                    startOnLoad: false,
+                    securityLevel: "loose",
+                    theme: isDark() ? "dark" : "default"
+                });
+                window.mermaid.run({ nodes: pending }).catch(function (err) {
+                    console.error("mermaid: render error", err);
+                });
+            });
+        }
+
+        function ready() {
+            collect();
+            render();
+            var toggle = document.getElementById("theme-toggle");
+            if (toggle) {
+                toggle.addEventListener("click", function () {
+                    // the toggle handler flips the attribute synchronously; re-render after it
+                    setTimeout(render, 0);
+                });
+            }
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", ready);
+        } else {
+            ready();
+        }
+    })();
+</script>

@@ -91,6 +91,7 @@ defaults:
       author: nothin
       catalog: true
       mathjax: true
+      mermaid: true
 
 # Featured Tags
 featured-tags: true # whether or not using Feature-Tags

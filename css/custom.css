@@ -205,3 +205,25 @@ a:hover .fa-stack {
   cursor: pointer;
   font-size: 16px;
 }
+
+/* ---- Mermaid diagrams ---- */
+.mermaid {
+  margin: 1.6em 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+/* keep the source readable until (or unless) mermaid renders it */
+.mermaid:not([data-processed]) {
+  text-align: left;
+  white-space: pre;
+  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+  background: var(--bg-soft, #f7f7f7);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
