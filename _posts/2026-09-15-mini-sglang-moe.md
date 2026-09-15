@@ -196,7 +196,7 @@ run3:  4502.9 ms   # 16 tokens
 ## 复现
 
 完整实现在 `nothiny/mini-sglang` 的 `moe` 分支：
-<https://github.com/nothiny/mini-sglang/tree/moe>
+<https://github.com/nothiny/mini-sglang/tree/mini-moe>
 
 ```bash
 # 合成 benchmark（不需要模型）
