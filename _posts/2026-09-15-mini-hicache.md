@@ -27,7 +27,7 @@ LLM 推理里的 prefix cache（radix cache）是个性价比极高的优化：�
 - **L2**：pinned 主机内存，走 PCIe 异步 DMA。
 - **L3**：一个本地文件，固定 slot，走 `pread`/`pwrite`。
 
-整套实现是 opt-in 的，只有开了 `--enable-hicache` 才生效。默认路径完全不变。现在的实现只支持 MHA，MLA 和 KV 量化不在范围内。
+整套实现是 opt-in 的，只有开了 `--enable-hicache` 才生效。默认路径完全不变。现在的实现只支持 MHA，MLA 和 KV 量化不在范围内（MLA 的状态和后续计划见文末更新）。
 
 ## 整体结构
 
@@ -503,6 +503,12 @@ L3 完全取决于硬件，也取决于模型大小。8B + Blackwell 上它基�
 二是在线代价模型。它让系统在参数没有针对硬件调好的情况下也不至于明显变慢，而不是默认 restore 一定更快。这个设计在 L3 场景尤其重要，因为 restore 和 recompute 的胜负本来就依赖具体硬件，写死的策略一定会在部分机器上判断错误。
 
 后面能做的：L3 换成 `io_uring` / `O_DIRECT` 或者 GPUDirect Storage，写穿批量化，restore 和 decode 的 overlap 再激进一些。不过在这些之前，先给机器加装 NVMe 更实际。
+
+### 更新（09-18）：merge 进了 mini-deepseek
+
+这个分支已经 merge 进 `mini-deepseek`（和 MLA + MoE 那条线汇合，冲突 8 个文件，基本都是「两边各自新增」型：`CacheManager` 现在同时接受淘汰策略参数和全套 hicache 参数，`check_integrity` 保留了更强的一版并补上了重复物理索引检查）。
+
+MHA-only 的限制还在：传输层的 gather/scatter 和 L2 布局都硬编码了 `[2, layer, page, ...]` 的 MHA 转置，MLA 的 latent 是分开的 `ckv`/`kpe` 两个 buffer，需要一条新的 page-major 传输路径。现在启用 hicache 时 MLA 池会被明确拒绝，而不是静默错——这在 mini-sglang 的设计文档里 tracked 为 `mini-hicache-mla`。好消息是方向是对口的：MLA 每 token 只有 576 个元素、且天然是两个独立 buffer，做 page-major 打包比 MHA 还简单，那次 merge 只是让两条线先共存，把地基打好。
 
 ## 复现
 
